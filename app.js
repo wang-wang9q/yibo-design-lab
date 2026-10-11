@@ -1,5 +1,7 @@
 import { YiboSculpture } from './sculpture.js';
 import { KineticField } from './kinetic.js';
+import { MindScene } from './about-scene.js';
+import { PrismField } from './prism-field.js';
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
@@ -17,6 +19,9 @@ let scrollRefresh;
 let sculpture;
 let field;
 let entranceTimeline;
+let mind;
+let prism;
+let immersiveActive = false;
 
 // Preserve the real heading text for assistive technology while animating its letters.
 $$('[data-split]').forEach(row => {
@@ -35,7 +40,7 @@ $$('[data-split]').forEach(row => {
 function goTo(id) {
   const target = document.getElementById(id);
   if (!target) return;
-  const offset = id === 'top' || id === 'work' ? 0 : 95;
+  const offset = ['top', 'work', 'about'].includes(id) ? 0 : 95;
   const top = target.getBoundingClientRect().top + window.scrollY - offset;
   window.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'instant' : 'smooth' });
 }
@@ -71,7 +76,7 @@ function capturePosition() {
   if (workTrigger && window.scrollY >= workTrigger.start - 1 && window.scrollY <= workTrigger.end + 1) {
     return { element: $$('.work-panel')[workIndex], top: $$('.work-panel')[workIndex].getBoundingClientRect().top, work: workIndex };
   }
-  const anchors = $$('.hero-stage, .work-panel, .about-statement, .about-object, .practice-list, .method, .lab-heading, .lab-canvas-wrap, .lab-controlbar, .closing, footer');
+  const anchors = $$('.hero-stage, .work-panel, .transition-stage, .about-stage, .about-statement, .about-object, .practice-list, .method, .lab-heading, .lab-canvas-wrap, .lab-controlbar, .closing, footer');
   const visible = anchors.filter(element => { const rect = element.getBoundingClientRect(); return rect.bottom > 95 && rect.top < window.innerHeight; });
   const element = visible.sort((a, b) => Math.abs(a.getBoundingClientRect().top - 100) - Math.abs(b.getBoundingClientRect().top - 100))[0];
   if (!element) return null;
@@ -95,7 +100,10 @@ function buildMotion(preserve = true) {
   sculpture?.setReducedMotion(reduced);
   sculpture?.setProgress(0);
   field?.setReducedMotion(reduced);
-  if (reduced && gsap) { gsap.killTweensOf('.magnetic, .cursor'); gsap.set('.magnetic', { x: 0, y: 0 }); }
+  mind?.setReducedMotion(reduced);
+  mind?.setProgress(reduced ? 1 : 0);
+  prism?.setReducedMotion(reduced);
+  if (reduced && gsap) { gsap.killTweensOf('.magnetic, .cursor, .practice'); gsap.set('.magnetic', { x: 0, y: 0 }); gsap.set('.practice', { rotationX: 0, rotationY: 0 }); }
   const control = $('#motion-control');
   control.setAttribute('aria-pressed', String(reduced));
   control.setAttribute('aria-label', reduced ? '开启完整动态模式' : '开启轻动态模式');
@@ -110,7 +118,7 @@ function buildMotion(preserve = true) {
     }
     const small = window.innerWidth <= 700;
     const hero = gsap.timeline({ scrollTrigger: {
-      trigger: '.hero-story', start: 'top top', end: () => `+=${window.innerHeight * (small ? 1.25 : 1.65)}`,
+      trigger: '.hero-story', start: 'top top', end: () => `+=${window.innerHeight * (small ? 1.65 : 2.05)}`,
       pin: window.innerHeight >= 720 ? '.hero-stage' : false, scrub: 1, anticipatePin: 1, invalidateOnRefresh: true,
       onUpdate: self => sculpture?.setProgress(self.progress)
     } });
@@ -121,7 +129,12 @@ function buildMotion(preserve = true) {
       .to('.hero-manifesto', { autoAlpha: 1, y: -12, duration: .3 }, .48)
       .from('.hero-manifesto p', { y: 45, duration: .32, ease: 'power2.out' }, .5)
       .to('.manifesto-mark', { rotation: 180, duration: .45, ease: 'none' }, .55)
-      .to('.hero-lines', { opacity: 0, duration: .3 }, .2);
+      .to('.hero-lines', { opacity: 0, duration: .3 }, .2)
+      .to('.hero-orbit-type', { scale: 1.3, opacity: .2, duration: .8 }, .2)
+      .to('.hero-cut', { clipPath: 'inset(0% 0% 0%)', duration: .22, ease: 'power2.inOut' }, .98)
+      .to('.hero-cut', { clipPath: 'inset(0% 0% 100%)', duration: .22, ease: 'power2.inOut' }, 1.32);
+    const orbit = gsap.to('.hero-orbit-type svg', { rotation: 360, duration: 60, repeat: -1, ease: 'none', paused: true });
+    ScrollTrigger.create({ trigger: '.hero-story', start: 'top bottom', end: 'bottom top', onToggle: self => self.isActive ? orbit.play() : orbit.pause() });
 
     const track = $('.work-track');
     const distance = () => Math.max(0, track.scrollWidth - window.innerWidth + window.innerWidth * (small ? .12 : .1));
@@ -132,25 +145,50 @@ function buildMotion(preserve = true) {
       onUpdate: self => { setWorkIndex(self.progress * 3); gsap.set('.work-meter i', { scaleX: .04 + self.progress * .96 }); }
     } });
       workTrigger = rail.scrollTrigger;
+      $$('.work-panel').forEach(panel => {
+        gsap.from(panel.querySelector('.work-content'), { y: 55, opacity: .3, scrollTrigger: { trigger: panel, containerAnimation: rail, start: 'left 90%', end: 'left 25%', scrub: true } });
+        gsap.from(panel.querySelector('.work-visual>img'), { scale: 1.12, scrollTrigger: { trigger: panel, containerAnimation: rail, start: 'left 95%', end: 'left 5%', scrub: true } });
+      });
     } else {
       $$('.work-panel').forEach((panel, i) => {
         ScrollTrigger.create({ trigger: panel, start: 'top 60%', end: 'bottom 60%', onEnter: () => setWorkIndex(i), onEnterBack: () => setWorkIndex(i) });
         gsap.from(panel, { y: 35, opacity: .5, duration: .8, scrollTrigger: { trigger: panel, start: 'top 90%', once: true } });
       });
     }
+    gsap.from('.transition-stage p>span', { xPercent: i => i % 2 ? 25 : -25, opacity: .15, stagger: .1, ease: 'none', scrollTrigger: { trigger: '.chapter-transition', start: 'top 85%', end: 'bottom 70%', scrub: 1 } });
+    gsap.to('.transition-strip', { xPercent: -10, rotation: 5, ease: 'none', scrollTrigger: { trigger: '.chapter-transition', start: 'top bottom', end: 'bottom top', scrub: 1 } });
+    gsap.to('.transition-disc', { rotation: 150, scale: 1.35, ease: 'none', scrollTrigger: { trigger: '.chapter-transition', start: 'top bottom', end: 'bottom top', scrub: 1 } });
+    const mindTimeline = gsap.timeline({ scrollTrigger: {
+      trigger: '.about-stage', start: 'top top', end: () => `+=${window.innerHeight * (small ? 1.2 : 1.55)}`,
+      pin: window.innerHeight >= 720, scrub: .7, anticipatePin: 1, invalidateOnRefresh: true,
+      onUpdate: self => {
+        mind?.setProgress(self.progress);
+        const label = String(Math.round(self.progress * 100)).padStart(2, '0');
+        if ($('#mind-progress').textContent !== label) $('#mind-progress').textContent = label;
+        $$('[data-phase]').forEach((item, i) => item.classList.toggle('active', i === Math.min(2, Math.floor(self.progress * 3))));
+      }
+    } });
+    mindTimeline.to('.about-poster', { yPercent: -25, rotation: -5, opacity: 0, duration: .35, ease: 'power2.in' }, .12)
+      .fromTo('.about-second', { autoAlpha: 0, y: 60 }, { autoAlpha: 1, y: 0, duration: .3, ease: 'power2.out' }, .43)
+      .fromTo('.mind-field', { opacity: .28, scale: 1.08 }, { opacity: .75, scale: 1, duration: .7, ease: 'none' }, 0)
+      .to('.about-counter', { y: -30, duration: .3 }, .55)
+      .to('.about-stage-line', { scaleX: .35, transformOrigin: 'left', duration: .15 }, .7)
+      .to('.about-stage-line', { scaleX: 1, duration: .15 }, .85);
     gsap.to('.about-fill', { '--fill': '100%', ease: 'none', scrollTrigger: { trigger: '.about-layout', start: 'top 80%', end: 'center 55%', scrub: true } });
     gsap.from('.about-statement p', { y: 25, opacity: 0, duration: 1, scrollTrigger: { trigger: '.about-statement p', start: 'top 90%', once: true } });
     gsap.to('.about-monogram', { yPercent: -12, rotation: 8, ease: 'none', scrollTrigger: { trigger: '.about-object', start: 'top bottom', end: 'bottom top', scrub: 1 } });
     gsap.to('.orbit-one', { rotationZ: 150, duration: 32, repeat: -1, ease: 'none' });
     gsap.to('.orbit-two', { rotationZ: -150, duration: 38, repeat: -1, ease: 'none' });
     gsap.to('.about-star', { rotation: 360, duration: 26, repeat: -1, ease: 'none' });
-    gsap.from('.practice', { y: 30, opacity: 0, stagger: .1, duration: .65, scrollTrigger: { trigger: '.practice-list', start: 'top 88%', once: true } });
+    gsap.from('.practice', { y: 75, rotation: i => i % 2 ? 6 : -6, opacity: 0, stagger: .14, duration: .8, ease: 'power3.out', scrollTrigger: { trigger: '.practice-list', start: 'top 88%', once: true } });
     gsap.to('.method-path', { strokeDashoffset: 0, ease: 'none', scrollTrigger: { trigger: '.method', start: 'top 80%', end: 'bottom 75%', scrub: 1 } });
     gsap.from('.method-steps>div', { y: 20, opacity: 0, stagger: .16, duration: .7, scrollTrigger: { trigger: '.method-steps', start: 'top 92%', once: true } });
     gsap.from('.lab-heading h2', { y: 45, opacity: 0, duration: .9, scrollTrigger: { trigger: '.lab-heading', start: 'top 85%', once: true } });
     gsap.from('.lab-canvas-wrap', { scale: .94, opacity: .2, duration: 1, scrollTrigger: { trigger: '.lab-canvas-wrap', start: 'top 90%', end: 'top 30%', scrub: 1 } });
     gsap.from('.closing .char', { yPercent: 90, opacity: 0, rotation: 6, duration: 1.05, stagger: .025, ease: 'power3.out', scrollTrigger: { trigger: '.closing h2', start: 'top 85%', once: true } });
     gsap.to('.closing-star', { rotation: 180, ease: 'none', scrollTrigger: { trigger: '.closing', start: 'top bottom', end: 'bottom top', scrub: 1 } });
+    ScrollTrigger.create({ trigger: '.closing', start: 'top bottom', end: 'bottom top', onUpdate: self => prism?.setProgress(self.progress) });
+    gsap.to('.prism-pulse>span', { rotation: 180, ease: 'none', scrollTrigger: { trigger: '.closing', start: 'top bottom', end: 'bottom top', scrub: 1 } });
   });
   context.add(() => {
     gsap.to('.page-progress i', { scaleX: 1, ease: 'none', scrollTrigger: { start: 0, end: () => ScrollTrigger.maxScroll(window), scrub: true } });
@@ -171,7 +209,11 @@ function pointerFor(event, target) {
 
 function attachInteractions() {
   const heroStage = $('.hero-stage');
-  heroStage.addEventListener('pointermove', event => sculpture?.setPointer(...pointerFor(event, heroStage)), { passive: true });
+  heroStage.addEventListener('pointermove', event => {
+    const pointer = pointerFor(event, heroStage);
+    sculpture?.setPointer(...pointer);
+    $('#hero-coordinate').textContent = `${String(Math.round((pointer[0] + 1) * 50)).padStart(2, '0')} / ${String(Math.round((pointer[1] + 1) * 50)).padStart(2, '0')}`;
+  }, { passive: true });
   heroStage.addEventListener('pointerleave', () => sculpture?.setPointer(0, 0));
   $$('[data-sculpture]').forEach(button => button.addEventListener('click', () => {
     selectButtons('[data-sculpture]', 'sculpture', button.dataset.sculpture);
@@ -192,7 +234,20 @@ function attachInteractions() {
   }));
   $('#main').setAttribute('tabindex', '-1');
   $('#motion-control').addEventListener('click', () => { userReduced = !reduced; reduced = userReduced; entranceTimeline?.progress(1); buildMotion(); });
-  media.addEventListener('change', () => { if (userReduced === null) { reduced = media.matches; buildMotion(); } });
+  media.addEventListener('change', () => {
+    if (userReduced !== null) return;
+    reduced = media.matches;
+    if (immersiveActive) field?.setReducedMotion(reduced);
+    else buildMotion();
+  });
+  const mindStage = $('.about-stage');
+  mindStage.addEventListener('pointermove', event => mind?.setPointer(...pointerFor(event, mindStage)), { passive: true });
+  mindStage.addEventListener('pointerleave', () => mind?.setPointer(0, 0));
+  $('#mind-pulse').addEventListener('click', () => mind?.pulse());
+  const closing = $('.closing');
+  closing.addEventListener('pointermove', event => prism?.setPointer(...pointerFor(event, closing)), { passive: true });
+  closing.addEventListener('pointerleave', () => prism?.setPointer(0, 0));
+  $('#prism-pulse').addEventListener('click', () => prism?.pulse());
 
   const modes = {
     type: ['01 / TYPOGRAPHIC FIELD', '让名字，自由发生。'],
@@ -200,12 +255,14 @@ function attachInteractions() {
     flow: ['03 / FLOWING POSSIBILITIES', '跟随流动，找到新的方向。']
   };
   function changeMode(mode) {
-    selectButtons('[data-mode]', 'mode', mode);
+    selectButtons('button[data-mode]', 'mode', mode);
+    $('#lab').dataset.mode = mode;
+    $('.lab-viewport').dataset.mode = mode;
     field?.setMode(mode);
     $('#lab-mode-label').textContent = modes[mode][0];
     $('#lab-status').textContent = modes[mode][1];
   }
-  $$('[data-mode]').forEach(button => button.addEventListener('click', () => changeMode(button.dataset.mode)));
+  $$('button[data-mode]').forEach(button => button.addEventListener('click', () => changeMode(button.dataset.mode)));
   $$('[data-palette]').forEach(button => button.addEventListener('click', () => {
     selectButtons('[data-palette]', 'palette', button.dataset.palette);
     field?.setColor(button.dataset.palette);
@@ -241,6 +298,7 @@ function attachInteractions() {
   stage.addEventListener('keydown', event => {
     if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); field?.setPointer(0, 0); field?.pulse(); $('#lab-status').textContent = reduced ? '静态模式下，也可以切换形态与颜色。' : '一圈涟漪，正在扩散。'; }
   });
+  setupImmersive();
   const cursor = $('.cursor');
   if (finePointer.matches && gsap) {
     const x = gsap.quickTo(cursor, 'x', { duration: .22, ease: 'power3.out' });
@@ -259,7 +317,65 @@ function attachInteractions() {
       });
       button.addEventListener('pointerleave', () => gsap.to(button, { x: 0, y: 0, duration: reduced ? 0 : .6, ease: 'elastic.out(1, .4)', overwrite: 'auto' }));
     });
+    $$('.practice').forEach(card => {
+      card.addEventListener('pointermove', event => {
+        if (reduced) return;
+        const [x, y] = pointerFor(event, card);
+        gsap.to(card, { rotationX: -y * 7, rotationY: x * 7, transformPerspective: 700, duration: .35, overwrite: 'auto' });
+      });
+      card.addEventListener('pointerleave', () => gsap.to(card, { rotationX: 0, rotationY: 0, duration: reduced ? 0 : .65, ease: 'power3.out', overwrite: 'auto' }));
+    });
   }
+}
+
+function setupImmersive() {
+  const viewport = $('.lab-viewport');
+  const controls = $('.lab-controlbar');
+  const button = $('#lab-immersive');
+  let placeholder;
+  let savedStageTop = 0;
+  function toggle(enter) {
+    if (enter === immersiveActive) return;
+    immersiveActive = enter;
+    if (enter) {
+      savedStageTop = stableTop($('#lab-stage'));
+      clearTimeout(scrollRefresh);
+      placeholder = document.createElement('div');
+      placeholder.className = 'lab-placeholder';
+      placeholder.style.height = `${viewport.offsetHeight + controls.offsetHeight + parseFloat(getComputedStyle(viewport).marginTop)}px`;
+      viewport.before(placeholder);
+      viewport.append(controls);
+      document.body.append(viewport);
+      viewport.setAttribute('role', 'dialog'); viewport.setAttribute('aria-modal', 'true'); viewport.setAttribute('aria-label', '沉浸式互动实验');
+    } else {
+      placeholder.before(viewport);
+      viewport.after(controls);
+      placeholder.remove();
+      viewport.removeAttribute('role'); viewport.removeAttribute('aria-modal'); viewport.removeAttribute('aria-label');
+    }
+    viewport.classList.toggle('immersive', enter);
+    document.body.classList.toggle('immersive-open', enter);
+    $$('.header, #main, footer').forEach(element => { element.inert = enter; });
+    button.setAttribute('aria-pressed', String(enter));
+    button.firstChild.textContent = enter ? '退出沉浸模式 ' : '进入沉浸模式 ';
+    button.focus({ preventScroll: true });
+    if (!enter) {
+      buildMotion(false);
+      const top = stableTop($('#lab-stage')) + window.scrollY - savedStageTop;
+      window.scrollTo({ top: clamp(top, 0, document.documentElement.scrollHeight - window.innerHeight), behavior: 'instant' });
+    }
+  }
+  button.addEventListener('click', () => toggle(!immersiveActive));
+  document.addEventListener('keydown', event => {
+    if (!immersiveActive) return;
+    if (event.key === 'Escape') { event.preventDefault(); toggle(false); }
+    if (event.key === 'Tab') {
+      const focusables = $$('button:not(:disabled), input, [tabindex="0"]', viewport);
+      const first = focusables[0], last = focusables.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+  });
 }
 
 const projects = {
@@ -294,6 +410,8 @@ function showDialog(dialog) {
   document.body.classList.add('dialog-open');
   sculpture?.setVisible(false);
   field?.setReducedMotion(true);
+  mind?.setReducedMotion(true);
+  prism?.setReducedMotion(true);
 }
 
 function closeDialog(dialog) {
@@ -305,6 +423,7 @@ function setupDialogs() {
   $('#work-current').setAttribute('aria-live', 'polite');
   $$('[data-case]').forEach(button => button.addEventListener('click', () => {
     const project = projects[button.dataset.case];
+    dialog.dataset.project = button.dataset.case;
     $('#case-title').textContent = project.title;
     $('#case-category').textContent = project.category;
     $('#case-summary').textContent = project.summary;
@@ -332,6 +451,13 @@ function setupDialogs() {
     dialog.scrollTop = 0;
   }));
   $$('[data-case]').forEach(button => button.setAttribute('aria-label', `展开${projects[button.dataset.case].title}案例`));
+  $$('.work-visual').forEach(visual => {
+    const button = $('[data-case]', visual.closest('.work-panel'));
+    visual.tabIndex = 0;
+    visual.setAttribute('role', 'button'); visual.setAttribute('aria-label', button.getAttribute('aria-label'));
+    visual.addEventListener('click', () => button.click());
+    visual.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); button.click(); } });
+  });
   $$('[data-contact]').forEach(button => button.addEventListener('click', () => showDialog($('#contact-dialog'))));
   $$('[data-close]').forEach(button => button.addEventListener('click', () => closeDialog(document.getElementById(button.dataset.close))));
   $$('dialog').forEach(item => {
@@ -341,7 +467,7 @@ function setupDialogs() {
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeDialog(item);
     });
     item.addEventListener('close', () => {
-      document.body.classList.remove('dialog-open'); sculpture?.setVisible(true); field?.setReducedMotion(reduced);
+      document.body.classList.remove('dialog-open'); sculpture?.setVisible(true); field?.setReducedMotion(reduced); mind?.setReducedMotion(reduced); prism?.setReducedMotion(reduced);
     });
   });
   const form = $('#brief-form');
@@ -374,6 +500,8 @@ function start() {
   gsap?.registerPlugin(ScrollTrigger);
   try { sculpture = new YiboSculpture($('#hero-sculpture'), { reducedMotion: reduced }); } catch (error) { console.warn('Sculpture unavailable', error); }
   try { field = new KineticField($('#kinetic-canvas'), { reducedMotion: reduced }); } catch (error) { console.warn('Particle field unavailable', error); }
+  try { mind = new MindScene($('#mind-canvas'), { reducedMotion: reduced }); } catch (error) { console.warn('Mind scene unavailable', error); }
+  try { prism = new PrismField($('#prism-canvas'), { reducedMotion: reduced }); } catch (error) { console.warn('Prism field unavailable', error); }
   field?.setStrength(.55);
   attachInteractions();
   setupDialogs();
@@ -396,12 +524,13 @@ function start() {
     lastWidth = window.innerWidth;
     lastCompact = window.innerHeight < 720;
     clearTimeout(scrollRefresh);
+    if (immersiveActive) return;
     scrollRefresh = setTimeout(() => { entranceTimeline?.progress(1); buildMotion(); }, 220);
   });
   document.fonts.ready.then(() => ScrollTrigger?.refresh());
   window.addEventListener('load', () => ScrollTrigger?.refresh(), { once: true });
   if (location.hash && location.hash !== '#top') setTimeout(() => goTo(location.hash.slice(1)), 1800);
-  window.addEventListener('pagehide', event => { if (!event.persisted) { context?.revert(); sculpture?.destroy(); field?.destroy(); } });
+  window.addEventListener('pagehide', event => { if (!event.persisted) { context?.revert(); sculpture?.destroy(); field?.destroy(); mind?.destroy(); prism?.destroy(); } });
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
