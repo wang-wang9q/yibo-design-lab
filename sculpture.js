@@ -91,7 +91,7 @@ export class YiboSculpture {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.mobile ? 1.35 : 1.75));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.26;
+    this.renderer.toneMappingExposure = 1.15;
     const canvas = this.renderer.domElement;
     canvas.className = 'sculpture-canvas';
     canvas.setAttribute('aria-hidden', 'true');
@@ -127,9 +127,9 @@ export class YiboSculpture {
     geometry.morphAttributes.normal = [flower.attributes.normal.clone(), orbit.attributes.normal.clone()];
     flower.dispose(); orbit.dispose();
     const metal = this.own(new THREE.MeshPhysicalMaterial({
-      color: 0xd8eaff, metalness: 1, roughness: .16,
-      clearcoat: 1, clearcoatRoughness: .12, envMapIntensity: 2.15,
-      iridescence: .35, iridescenceIOR: 1.34, iridescenceThicknessRange: [80, 330]
+      color: 0xe6edf2, metalness: 1, roughness: .13,
+      clearcoat: 1, clearcoatRoughness: .09, envMapIntensity: 2.15,
+      iridescence: .18, iridescenceIOR: 1.34, iridescenceThicknessRange: [80, 330]
     }));
     this.metal = metal;
     this.sculpture = new THREE.Mesh(geometry, metal);

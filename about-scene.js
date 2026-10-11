@@ -114,9 +114,9 @@ export class MindScene {
     this.canvas.width = Math.round(this.width * this.dpr);
     this.canvas.height = Math.round(this.height * this.dpr);
     this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.centerX = this.width * (this.mobile ? .5 : .54);
-    this.centerY = this.height * .5;
-    this.radius = Math.min(this.width, this.height) * (this.mobile ? .345 : .365);
+    this.centerX = this.width * (this.mobile ? .5 : .73);
+    this.centerY = this.height * (this.mobile ? .61 : .52);
+    this.radius = Math.min(this.width, this.height) * (this.mobile ? .30 : .29);
     this.render();
   }
 

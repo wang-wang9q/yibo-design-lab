@@ -1,7 +1,8 @@
-import { YiboSculpture } from './sculpture.js';
+import { YiboSculpture } from './sculpture.js?v=4';
 import { KineticField } from './kinetic.js';
-import { MindScene } from './about-scene.js';
-import { PrismField } from './prism-field.js';
+import { MindScene } from './about-scene.js?v=4';
+import { PrismField } from './prism-field.js?v=4';
+import { buildCaseStudy } from './case-studies.js?v=4';
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
 const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
@@ -80,7 +81,9 @@ function capturePosition() {
   const visible = anchors.filter(element => { const rect = element.getBoundingClientRect(); return rect.bottom > 95 && rect.top < window.innerHeight; });
   const element = visible.sort((a, b) => Math.abs(a.getBoundingClientRect().top - 100) - Math.abs(b.getBoundingClientRect().top - 100))[0];
   if (!element) return null;
-  return { element, top: stableTop(element), work: element.classList.contains('work-panel') ? $$('.work-panel').indexOf(element) : null };
+  // Keep the edge the visitor currently sees, including an in-flight reveal.
+  // Normalising the captured edge would move the lab when light mode removes its scale.
+  return { element, top: element.getBoundingClientRect().top, work: element.classList.contains('work-panel') ? $$('.work-panel').indexOf(element) : null };
 }
 
 function stableTop(element) {
@@ -123,16 +126,17 @@ function buildMotion(preserve = true) {
       onUpdate: self => sculpture?.setProgress(self.progress)
     } });
     hero.to('.hero-title .char', { yPercent: (i) => -85 - i * 7, xPercent: (i) => (i % 2 ? 12 : -12), rotation: (i) => (i % 2 ? 9 : -9), opacity: 0, stagger: .015, ease: 'power2.in', duration: .38 }, 0)
-      .to('.hero-stage', { '--hero-bg': '#244eff', '--hero-ink': '#f1f0e9', duration: .45, ease: 'none' }, .2)
-      .to('.hero-sculpture', { xPercent: small ? 19 : 7, yPercent: small ? 18 : 7, scale: small ? .9 : 1.13, duration: .65, ease: 'power2.inOut' }, .18)
-      .to('.portal-ring', { scale: 2.3, borderColor: '#ffffff30', duration: .7, ease: 'none' }, .15)
-      .to('.hero-manifesto', { autoAlpha: 1, y: -12, duration: .3 }, .48)
-      .from('.hero-manifesto p', { y: 45, duration: .32, ease: 'power2.out' }, .5)
-      .to('.manifesto-mark', { rotation: 180, duration: .45, ease: 'none' }, .55)
+      .to('.hero-stage', { '--hero-bg': '#244eff', '--hero-ink': '#f1f0e9', duration: .32, ease: 'none' }, .30)
+      .to('.hero-sculpture', { xPercent: small ? 19 : 7, yPercent: small ? 18 : 7, scale: small ? .9 : 1.13, duration: .48, ease: 'power2.inOut' }, .27)
+      .to('.portal-ring', { scale: 2.3, borderColor: '#ffffff30', duration: .6, ease: 'none' }, .15)
+      .to('.hero-manifesto', { autoAlpha: 1, y: -12, duration: .22 }, .70)
+      .from('.hero-manifesto p', { y: 35, duration: .22, ease: 'power2.out' }, .72)
+      .to('.manifesto-mark', { rotation: 90, duration: .22, ease: 'none' }, .76)
       .to('.hero-lines', { opacity: 0, duration: .3 }, .2)
-      .to('.hero-orbit-type', { scale: 1.3, opacity: .2, duration: .8 }, .2)
-      .to('.hero-cut', { clipPath: 'inset(0% 0% 0%)', duration: .22, ease: 'power2.inOut' }, .98)
-      .to('.hero-cut', { clipPath: 'inset(0% 0% 100%)', duration: .22, ease: 'power2.inOut' }, 1.32);
+      .to('.hero-coordinate', { autoAlpha: 0, duration: .2 }, .38)
+      .to('.hero-orbit-type', { scale: 1.3, opacity: .12, duration: .55 }, .2)
+      .to('.hero-cut', { clipPath: 'inset(0% 0% 0%)', duration: .16, ease: 'power2.inOut' }, 1.12)
+      .to('.hero-cut', { clipPath: 'inset(0% 0% 100%)', duration: .16, ease: 'power2.inOut' }, 1.38);
     const orbit = gsap.to('.hero-orbit-type svg', { rotation: 360, duration: 60, repeat: -1, ease: 'none', paused: true });
     ScrollTrigger.create({ trigger: '.hero-story', start: 'top bottom', end: 'bottom top', onToggle: self => self.isActive ? orbit.play() : orbit.pause() });
 
@@ -168,10 +172,9 @@ function buildMotion(preserve = true) {
         $$('[data-phase]').forEach((item, i) => item.classList.toggle('active', i === Math.min(2, Math.floor(self.progress * 3))));
       }
     } });
-    mindTimeline.to('.about-poster', { yPercent: -25, rotation: -5, opacity: 0, duration: .35, ease: 'power2.in' }, .12)
-      .fromTo('.about-second', { autoAlpha: 0, y: 60 }, { autoAlpha: 1, y: 0, duration: .3, ease: 'power2.out' }, .43)
-      .fromTo('.mind-field', { opacity: .28, scale: 1.08 }, { opacity: .75, scale: 1, duration: .7, ease: 'none' }, 0)
-      .to('.about-counter', { y: -30, duration: .3 }, .55)
+    mindTimeline.to('.about-poster', { yPercent: -18, opacity: 0, duration: .25, ease: 'power2.in' }, .20)
+      .fromTo('.mind-field', { opacity: .18, scale: 1.05 }, { opacity: .82, scale: 1, duration: .5, ease: 'none' }, .27)
+      .fromTo('.about-second', { autoAlpha: 0, y: 35 }, { autoAlpha: 1, y: 0, duration: .23, ease: 'power2.out' }, .60)
       .to('.about-stage-line', { scaleX: .35, transformOrigin: 'left', duration: .15 }, .7)
       .to('.about-stage-line', { scaleX: 1, duration: .15 }, .85);
     gsap.to('.about-fill', { '--fill': '100%', ease: 'none', scrollTrigger: { trigger: '.about-layout', start: 'top 80%', end: 'center 55%', scrub: true } });
@@ -432,6 +435,8 @@ function setupDialogs() {
     $('#case-image').alt = project.alt;
     $('.case-cover').classList.toggle('is-aura', button.dataset.case === 'aura');
     $('#case-details').replaceChildren();
+    $('.study-suite', dialog)?.remove();
+    $('#case-details').before(buildCaseStudy(button.dataset.case));
     project.details.forEach(([number, title, description]) => {
       const block = document.createElement('div');
       const label = document.createElement('span');
@@ -496,6 +501,9 @@ function setupDialogs() {
 }
 
 function start() {
+  const entrance = $('.entrance');
+  const dismiss = () => { entrance.style.display = 'none'; };
+  setTimeout(dismiss, 2300);
   document.body.classList.add('js');
   gsap?.registerPlugin(ScrollTrigger);
   try { sculpture = new YiboSculpture($('#hero-sculpture'), { reducedMotion: reduced }); } catch (error) { console.warn('Sculpture unavailable', error); }
@@ -506,10 +514,7 @@ function start() {
   attachInteractions();
   setupDialogs();
   buildMotion(false);
-  const entrance = $('.entrance');
-  const dismiss = () => { entrance.style.display = 'none'; };
   // A finite entrance; the content always becomes available even if animation fails.
-  setTimeout(dismiss, 2600);
   if (gsap && !reduced) {
     entranceTimeline = gsap.timeline({ onComplete: dismiss });
     entranceTimeline.from('.entrance-grid>span', { y: 45, opacity: 0, duration: .6, stagger: .1, ease: 'power3.out' })
